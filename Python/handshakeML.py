@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
 import os
-from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import Dense
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense
 from sklearn.model_selection import train_test_split
+import tensorflow as tf
 
 
 def load_data(directory, label):
@@ -17,8 +18,8 @@ def load_data(directory, label):
             labels.append(label)
     return np.array(data), np.array(labels)
 
-X1, y1 = load_data('data/handshake', label=1)
-X2, y2 = load_data('data/non_handshake', label=0)
+X1, y1 = load_data('Python/data/handshake', label=1)
+X2, y2 = load_data('Python/data/non_handshake', label=0)
 
 X = np.concatenate([X1, X2])
 y = np.concatenate([y1, y2])
@@ -34,3 +35,14 @@ model = Sequential([
 
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 model.fit(X_train, y_train, epochs=20, validation_data=(X_test, y_test))
+
+model.save('handshake_model.h5')
+
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+tflite_model = converter.convert()
+
+# Save the TFLite model to a file
+with open('./handshake_project/handshake_model.tflite', 'wb') as f:
+    f.write(tflite_model)
+
+print("TFLite model saved as 'handshake_model.tflite'")

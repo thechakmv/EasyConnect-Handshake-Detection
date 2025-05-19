@@ -9,11 +9,11 @@ time.sleep(2)  # Allow Arduino to reset
 
 # Create timestamped filename
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-filename = f"handshakeTest/Python/data/sensor_data_{timestamp}.csv"  # Save in current directory
+filename = f"Python/data/sensor_data_{timestamp}.csv"  # Save in current directory
 
 # Countdown before logging
 print("Starting in:")
-for i in range(3, 0, -1):
+for i in range(1, 0, -1):
     print(i)
     time.sleep(1)
 print("Recording now...\n")
