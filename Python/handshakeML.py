@@ -12,7 +12,6 @@ def load_data(directory, label):
     labels = []
     for file in os.listdir(directory):
         df = pd.read_csv(os.path.join(directory, file))
-        df = df.drop(columns=['Timestamp'])  # Drop timestamp
         for i in range(len(df)):
             data.append(df.iloc[i].values)
             labels.append(label)
@@ -28,13 +27,13 @@ y = np.concatenate([y1, y2])
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
 model = Sequential([
-    Dense(32, activation='relu', input_shape=(9,)),
+    Dense(32, activation='relu', input_shape=(6,)),
     Dense(16, activation='relu'),
     Dense(1, activation='sigmoid')
 ])
 
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-model.fit(X_train, y_train, epochs=20, validation_data=(X_test, y_test))
+model.fit(X_train, y_train, epochs=30, validation_data=(X_test, y_test))
 
 model.save('handshake_model.h5')
 
@@ -42,7 +41,7 @@ converter = tf.lite.TFLiteConverter.from_keras_model(model)
 tflite_model = converter.convert()
 
 # Save the TFLite model to a file
-with open('./handshake_project/handshake_model.tflite', 'wb') as f:
+with open('./handshake_project/include/handshake_model.tflite', 'wb') as f:
     f.write(tflite_model)
 
 print("TFLite model saved as 'handshake_model.tflite'")

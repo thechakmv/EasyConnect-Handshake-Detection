@@ -87,12 +87,12 @@ void loop() {
     Serial.println(result);
 
     if (result > 0.5) {
-      Serial.println("🤝 Handshake detected!");
+      Serial.println("Handshake detected!");
     } else {
       Serial.println("No handshake.");
     }
   }
 
-  Serial.println("Waiting 10 seconds before next run...");
-  delay(10000);
+  Serial.println(".1.");
+  delay(10);
 }
