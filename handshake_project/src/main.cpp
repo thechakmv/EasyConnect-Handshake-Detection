@@ -7,20 +7,28 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 
-#include "handshake_model_data.cc"  // your model as C++ array
+#include "handshake_model_data.cc"  // TFLite model array
 
 Adafruit_BNO055 bno = Adafruit_BNO055(55);
 
-constexpr int kTensorArenaSize = 10 * 1024;
+constexpr int kTensorArenaSize = 15 * 1024;
 uint8_t tensor_arena[kTensorArenaSize];
+
+constexpr int kInferenceIntervalMs = 1000;
 
 const tflite::Model* model = nullptr;
 tflite::MicroInterpreter* interpreter = nullptr;
 TfLiteTensor* input = nullptr;
 TfLiteTensor* output = nullptr;
 
-constexpr int kNumSamples = 50;   // 50 samples (e.g., 5s @ 10 Hz)
+constexpr int kNumSamples = 101;
 constexpr int kFeaturesPerSample = 6;
+constexpr int kInputSize = kNumSamples * kFeaturesPerSample;
+constexpr int kSampleIntervalMs = 10;  // 100 Hz
+
+float circular_buffer[kInputSize] = {0};  // rolling window buffer
+int current_sample = 0;
+bool buffer_filled = false;
 
 void setup() {
   Serial.begin(115200);
@@ -33,12 +41,12 @@ void setup() {
 
   model = tflite::GetModel(handshake_model_tflite);
   if (model->version() != TFLITE_SCHEMA_VERSION) {
-    Serial.println("Model version mismatch!");
+    Serial.println("Model schema mismatch!");
     while (1);
   }
 
   static tflite::MicroMutableOpResolver<2> resolver;
-  resolver.AddFullyConnected();  // <-- change as needed for your model
+  resolver.AddFullyConnected();
   resolver.AddLogistic();
 
   static tflite::MicroInterpreter static_interpreter(
@@ -53,46 +61,51 @@ void setup() {
   input = interpreter->input(0);
   output = interpreter->output(0);
 
-  Serial.println("Setup complete. Starting in 2 seconds...");
-  delay(2000);
+  Serial.println("Setup complete. Listening for handshakes...");
 }
 
 void loop() {
-  Serial.println("Collecting data for 5 seconds...");
+  static unsigned long last_sample_time = 0;
+  if (millis() - last_sample_time < kSampleIntervalMs) return;
+  last_sample_time = millis();
 
-  int sample_interval_ms = 100; // 10 Hz
+  // Collect IMU data
+  sensors_event_t accel, gyro;
+  bno.getEvent(&accel, Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  bno.getEvent(&gyro, Adafruit_BNO055::VECTOR_GYROSCOPE);
+
+  // Circular buffer insert
+  int base = (current_sample % kNumSamples) * kFeaturesPerSample;
+  circular_buffer[base + 0] = accel.acceleration.x;
+  circular_buffer[base + 1] = accel.acceleration.y;
+  circular_buffer[base + 2] = accel.acceleration.z;
+  circular_buffer[base + 3] = gyro.gyro.x;
+  circular_buffer[base + 4] = gyro.gyro.y;
+  circular_buffer[base + 5] = gyro.gyro.z;
+
+  current_sample++;
+  if (current_sample >= kNumSamples) buffer_filled = true;
+
+  if (!buffer_filled) return;  // wait until buffer is full
+
+  // Copy circular buffer to model input in linear order
   for (int i = 0; i < kNumSamples; ++i) {
-    sensors_event_t accel, gyro;
-    bno.getEvent(&accel, Adafruit_BNO055::VECTOR_ACCELEROMETER);
-    bno.getEvent(&gyro, Adafruit_BNO055::VECTOR_GYROSCOPE);
-
-    int base = i * kFeaturesPerSample;
-    input->data.f[base + 0] = accel.acceleration.x;
-    input->data.f[base + 1] = accel.acceleration.y;
-    input->data.f[base + 2] = accel.acceleration.z;
-    input->data.f[base + 3] = gyro.gyro.x;
-    input->data.f[base + 4] = gyro.gyro.y;
-    input->data.f[base + 5] = gyro.gyro.z;
-
-    delay(sample_interval_ms);
-  }
-
-  Serial.println("Running inference...");
-
-  if (interpreter->Invoke() != kTfLiteOk) {
-    Serial.println("Invoke failed!");
-  } else {
-    float result = output->data.f[0]; // assumes single float output
-    Serial.print("Prediction score: ");
-    Serial.println(result);
-
-    if (result > 0.5) {
-      Serial.println("Handshake detected!");
-    } else {
-      Serial.println("No handshake.");
+    int circular_index = ((current_sample + i) % kNumSamples) * kFeaturesPerSample;
+    int linear_index = i * kFeaturesPerSample;
+    for (int j = 0; j < kFeaturesPerSample; ++j) {
+      input->data.f[linear_index + j] = circular_buffer[circular_index + j];
     }
   }
 
-  Serial.println(".1.");
-  delay(10);
+  // Inference
+  if (interpreter->Invoke() != kTfLiteOk) {
+    Serial.println("Inference failed!");
+    return;
+  }
+
+  float result = output->data.f[0];
+  Serial.print("Score: ");
+  Serial.print(result, 3);
+  Serial.print(" — ");
+  Serial.println(result > 0.5 ? "Handshake Detected" : "No Handshake");
 }

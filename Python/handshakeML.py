@@ -27,6 +27,7 @@ y = np.concatenate([y1, y2])
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
 model = Sequential([
+    Dense(64, activation='relu', input_shape=(6,))
     Dense(32, activation='relu', input_shape=(6,)),
     Dense(16, activation='relu'),
     Dense(1, activation='sigmoid')
