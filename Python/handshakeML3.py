@@ -43,7 +43,7 @@ model = Sequential([
 ])
 
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-model.fit(X_train, y_train, epochs=100, validation_data=(X_test, y_test))
+model.fit(X_train, y_train, epochs=30, validation_data=(X_test, y_test))
 
 model.save('handshake_model.h5')
 

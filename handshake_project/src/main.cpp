@@ -7,7 +7,7 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 
-#include "handshake_model_data.cc"  // TFLite model array
+#include "handshake_model.cc"  // TFLite model array
 
 Adafruit_BNO055 bno = Adafruit_BNO055(55);
 
@@ -71,7 +71,7 @@ void loop() {
 
   // Collect IMU data
   sensors_event_t accel, gyro;
-  bno.getEvent(&accel, Adafruit_BNO055::VECTOR_ACCELEROMETER);
+  bno.getEvent(&accel, Adafruit_BNO055::VECTOR_LINEARACCEL);
   bno.getEvent(&gyro, Adafruit_BNO055::VECTOR_GYROSCOPE);
 
   // Circular buffer insert
